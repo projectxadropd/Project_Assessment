@@ -344,7 +344,7 @@
 
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">คะแนนความพึงพอใจ</span>
-                    <span id="satProgressBadge" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">ข้อ 1 / 5</span>
+                    <span id="satProgressBadge" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">ข้อ 1 / 6</span>
                 </div>
 
                 <div class="min-h-[80px] flex flex-col justify-center mb-6">
@@ -786,8 +786,8 @@
         // Satisfaction Logic (Auto Next, Emoji Tap)
         // ==========================================
         function renderSatQuestion() {
-            // หน้าตรวจสอบ (เสร็จสิ้น 5 ข้อ)
-            if (currentSatStep === 5) {
+            // หน้าตรวจสอบ (เสร็จสิ้น 6 ข้อ)
+            if (currentSatStep === 6) {
                 document.getElementById('satProgressBadge').innerText = `เสร็จสิ้น`;
                 document.getElementById('satProgressBadge').className = `text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200`;
                 document.getElementById('satQuestionText').innerHTML = `
@@ -805,10 +805,10 @@
                 return;
             }
 
-            // หน้าคำถามปกติ (ข้อ 1 - 5) — เรียงอิโมจิแถวเดียวเสมอ (sat-emoji-row)
+            // หน้าคำถามปกติ (ข้อ 1 - 6) — เรียงอิโมจิแถวเดียวเสมอ (sat-emoji-row)
             document.getElementById('satOptionsContainer').className = "sat-emoji-row mb-6";
             document.getElementById('satLegend').classList.remove('hidden');
-            document.getElementById('satProgressBadge').innerText = `ข้อ ${currentSatStep + 1} / 5`;
+            document.getElementById('satProgressBadge').innerText = `ข้อ ${currentSatStep + 1} / 6`;
             document.getElementById('satProgressBadge').className = `text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200`;
             document.getElementById('satQuestionText').innerText = satQuestions[currentSatStep];
             
@@ -837,7 +837,7 @@
             
             // หน่วงเวลาให้เท่ากับความยาวของอนิเมชัน satPop (~450ms) เพื่อให้ผู้ป่วยเห็นว่าระบบรับค่าแล้ว ก่อนเปลี่ยนข้อโดยอัตโนมัติ
             setTimeout(() => {
-                if (currentSatStep < 5) {
+                if (currentSatStep < 6) {
                     currentSatStep++;
                     renderSatQuestion();
                 }
@@ -857,7 +857,7 @@
 
         function goToFinalStep() {
             if (satAnswers.includes(null)) {
-                alert("กรุณาตอบคำถามความพึงพอใจให้ครบ 5 ข้อ");
+                alert("กรุณาตอบคำถามความพึงพอใจให้ครบ 6 ข้อ");
                 return;
             }
             currentStep = 7; 
@@ -904,7 +904,7 @@
         function prevStep() { 
             if (currentStep === 7) { // ถ้าอยู่หน้า Submit
                 currentStep = 6;
-                currentSatStep = 4; // ถอยกลับไปข้อสุดท้ายของ Satisfaction
+                currentSatStep = 5; // ถอยกลับไปข้อที่ 6 ของ Satisfaction
                 renderSatQuestion();
                 updateUI();
                 scrollToTop();
@@ -925,7 +925,7 @@
             if (satAnswers.includes(null)) {
                 currentSatStep = satAnswers.indexOf(null);
             } else {
-                currentSatStep = 5;
+                currentSatStep = 6;
             }
             renderSatQuestion(); 
             updateUI(); 
@@ -938,7 +938,7 @@
             if (satAnswers.includes(null)) {
                 currentSatStep = satAnswers.indexOf(null);
             } else {
-                currentSatStep = 5;
+                currentSatStep = 6;
             }
             renderSatQuestion(); 
             updateUI(); 
@@ -1076,7 +1076,7 @@
             }
 
             const satTotal = satAnswers.reduce((a, b) => a + b, 0);
-            const satAvg = (satTotal / 5).toFixed(1);
+            const satAvg = (satTotal / 6).toFixed(1);
 
             const payload = {
                 action: 'submit_assessment',
@@ -1091,6 +1091,7 @@
                 sat3: satAnswers[2],
                 sat4: satAnswers[3],
                 sat5: satAnswers[4],
+                sat6: satAnswers[5],
                 satTotal: satTotal,
                 satAvg: satAvg
             };
