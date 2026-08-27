@@ -356,7 +356,7 @@
                 <div id="satOptionsContainer" class="sat-emoji-row mb-6"></div>
 
                 <div id="satLegend" class="flex justify-between text-[11px] text-slate-400 font-medium mb-6 px-1">
-                    <span>0 = ไม่พึงพอใจเลย</span>
+                    <span>1 = ไม่พึงพอใจเลย</span>
                     <span>5 = พึงพอใจมากที่สุด</span>
                 </div>
 
@@ -421,7 +421,7 @@ const satQuestions = [
     "โปรแกรมมีประโยชน์ในการช่วยประเมินอาการนำของการแพ้ยารุนแรงได้",
     "ความพึงพอใจในภาพรวมต่อการใช้งานโปรแกรม"
 ];
-const emojis = ['😞', '😕', '😐', '🙂', '😊', '😍'];
+const emojis = ['😕', '😐', '🙂', '😊', '😍'];
 let satAnswers = [null, null, null, null, null,null]
 let currentSatStep = 0;
 
@@ -833,12 +833,13 @@ function renderSatQuestion() {
     
     let html = '';
     emojis.forEach((em, idx) => {
-        const isSelected = satAnswers[currentSatStep] === idx;
+        const scoreVal = idx + 1; // Maps 5 array items to scores 1-5
+        const isSelected = satAnswers[currentSatStep] === scoreVal;
         const bgClass = isSelected ? 'bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-200 z-10 is-selected' : 'bg-white border-slate-200 hover:bg-slate-50 opacity-90';
         html += `
-        <button onclick="selectSat(${idx})" class="sat-emoji-btn active:scale-95 ${bgClass}">
+        <button onclick="selectSat(${scoreVal})" class="sat-emoji-btn active:scale-95 ${bgClass}">
             <span class="emoji">${em}</span>
-            <span class="num ${isSelected ? 'text-blue-700' : 'text-slate-500'}">${idx}</span>
+            <span class="num ${isSelected ? 'text-blue-700' : 'text-slate-500'}">${scoreVal}</span>
         </button>
         `;
     });
