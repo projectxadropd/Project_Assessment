@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แบบประเมินอาการแพ้ยา (SCARs)</title>
+    <link rel="icon" type="image/png" href="assets/scars-logo.png">
+    <link rel="apple-touch-icon" href="assets/scars-logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        html { font-size: 95%; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .step-container { display: none; }
+        .step-active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        input[type="file"] { display: none; }
+        .progress-stripe { background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent); background-size: 1rem 1rem; animation: stripe-motion 1s linear infinite; }
+        @keyframes stripe-motion { 0% { background-position: 1rem 0; } 100% { background-position: 0 0; } }
+        .question-image-wrap { position: relative; width: 100%; max-width: 350px; margin: 0 auto; border-radius: 1.25rem; overflow: hidden; background-color: #f8fafc; border: 2px dashed #cbd5e1; min-height: 150px; }
+        .question-image { width: 100%; height: auto; display: block; }
+        .question-image-fallback { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; color: #94a3b8; text-align: center; padding: 1rem; }
+        .answer-btn { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; min-height: 6.25rem; padding: 1.1rem 0.5rem; border-radius: 1.25rem; border-width: 3px; border-color: #e2e8f0; background-color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: all 0.15s ease; text-align: center; }
+        .answer-btn:active { transform: scale(0.98); }
+        .answer-btn .answer-icon { font-size: 1.6rem; flex-shrink: 0; }
+        .answer-btn .answer-label { font-size: 1.1rem; font-weight: 700; line-height: 1.3; }
+    </style>
+</head>
+<body class="flex flex-col h-screen max-w-lg mx-auto bg-white shadow-lg relative">
+
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-950/70 z-50 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center relative">
+            <i id="loadingIcon" class="fa-solid fa-spinner fa-spin text-5xl text-[#1e3a8a] mb-4"></i>
+            <h3 class="text-xl font-bold text-slate-800 mb-2" id="loadingTitle">กำลังเชื่อมต่อระบบ...</h3>
+            <p class="text-sm text-slate-500 mb-6" id="loadingDesc">กรุณารอสักครู่ ระบบกำลังตรวจสอบข้อมูลของท่าน</p>
+            <div id="progressContainer" class="w-full bg-slate-100 rounded-full h-4 mb-2 overflow-hidden border border-slate-200 hidden">
+                <div id="uploadProgress" class="bg-[#1e3a8a] h-4 rounded-full transition-all duration-300 relative progress-stripe" style="width: 0%"></div>
+            </div>
+            <p class="text-right text-sm font-bold text-[#1e3a8a] hidden" id="uploadText">0%</p>
+            <button id="retryCheckBtn" onclick="recheckFriendStatus()" class="hidden w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-bold py-3 rounded-xl transition mt-2 border border-slate-200">
+                <i class="fa-solid fa-rotate-right mr-2"></i> ลองใหม่อีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <header class="bg-[#1e3a8a] text-white px-6 py-4 shadow-md flex items-center justify-between z-10 shrink-0">
+        <div class="flex items-center gap-3">
+            <img src="assets/scars-logo.png" alt="SCARs Logo" class="h-12 w-12 object-contain shrink-0">
+            <div>
+                <h1 class="text-base font-bold leading-tight">แบบประเมินอาการแพ้ยา</h1>
+                <p class="text-xs text-blue-200 font-mono mt-0.5" id="displayHN">สถานะ: รอการเชื่อมต่อ...</p>
+            </div>
+        </div>
+        <img id="userImage" src="https://via.placeholder.com/150" alt="Profile" class="w-10 h-10 rounded-full border-2 border-white/80 hidden object-cover shadow-sm">
+    </header>
+
+    <div id="topProgressBar" class="bg-slate-100 h-2 w-full hidden">
+        <div id="progressBar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+    </div>
+
+    <main class="flex-1 overflow-y-auto p-5 flex flex-col justify-between">
+        <div class="w-full">
+            <div id="step-0" class="step-container text-center bg-white p-6 rounded-2xl">
+                <div class="w-20 h-20 bg-blue-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center text-3xl mx-auto mb-5 shadow-sm border border-blue-100"><i class="fa-solid fa-user-shield"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">สวัสดีครับ/ค่ะ <br><span id="displayUserName" class="text-[#1e3a8a]">คุณ...</span></h2>
+                <p class="text-slate-600 mb-8 text-base leading-relaxed">แบบประเมินอาการไม่พึงประสงค์จากยา<br>เพื่อความปลอดภัยและการดูแลสุขภาพที่ต่อเนื่องของท่าน</p>
+                <button onclick="nextStep()" class="w-full bg-[#1e3a8a] hover:bg-blue-900 text-white text-lg font-bold py-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                    เริ่มทำแบบประเมิน <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- กล่องคำถาม 1-4 -->
+            <div id="questionsContainer"></div>
+
+            <!-- Step 5: หน้าอาการเพิ่มเติม -->
+            <div id="step-extra" class="step-container bg-white p-6 rounded-2xl">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-indigo-100"><i class="fa-solid fa-notes-medical"></i></div>
+                    <h3 class="text-xl font-bold text-slate-800">อาการผิดปกติอื่น ๆ</h3>
+                    <p class="text-sm text-slate-500 mt-1">ท่านมีอาการอื่น ๆ ที่ต้องการแจ้งเพิ่มเติมหรือไม่?</p>
+                </div>
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">รายละเอียดอาการเพิ่มเติม (ไม่บังคับ)</label>
+                        <textarea id="extraSympInput" rows="4" placeholder="กรุณาระบุอาการเพิ่มเติม..." class="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] outline-none text-slate-700 text-sm bg-slate-50/50 resize-none transition"></textarea>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                        <p class="text-slate-700 font-bold text-sm mb-1"><i class="fa-solid fa-camera text-[#1e3a8a] mr-1.5"></i> แนบรูปภาพอาการเพิ่มเติม (ถ้ามี)</p>
+                        <p class="text-xs text-slate-400 mb-3">ไม่บังคับ (สูงสุด 5 รูปภาพ)</p>
+                        <label id="add-photo-btn-extra" class="cursor-pointer bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 py-2.5 px-5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 shadow-sm transition">
+                            <i class="fa-solid fa-image text-blue-600"></i> เลือกรูปภาพ
+                            <input type="file" accept="image/*" onchange="handlePhotoUpload(event, 'extra')">
+                        </label>
+                        <div id="preview-container-extra" class="mt-3 hidden flex gap-2 flex-wrap justify-center"></div>
+                    </div>
+                </div>
+                <button onclick="skipExtraSymp()" class="w-full mb-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i> ไม่มีอาการเพิ่มเติม
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="prevStep()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl text-sm transition"><i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ</button>
+                    <button onclick="submitExtraAndProceed()" class="flex-1 bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-3.5 rounded-xl text-sm shadow-sm transition">ถัดไป <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                </div>
+            </div>
+
+            <!-- Step 6 (เดิมคือ 7): หน้ากดยืนยันการส่ง (ตัดหน้าพึงพอใจออกแล้ว) -->
+            <div id="step-final" class="step-container text-center bg-white p-6 rounded-2xl">
+                <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-emerald-100"><i class="fa-solid fa-clipboard-check"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">ตรวจสอบความเรียบร้อย</h2>
+                <p class="text-slate-600 mb-8 text-sm leading-relaxed">ท่านได้ทำแบบประเมินครบถ้วนแล้ว<br>กรุณากดยืนยันเพื่อส่งข้อมูลให้เภสัชกรประเมินความปลอดภัย</p>
+                <button id="submitBtn" onclick="submitAssessment()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold py-4 rounded-xl shadow-md transition mb-3 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> ยืนยันและส่งข้อมูล
+                </button>
+                <button onclick="prevStep()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold py-3 rounded-xl transition">
+                    กลับไปตรวจสอบคำตอบ
+                </button>
+            </div>
+
+            <!-- Step 7: หน้าแสดงผลลัพธ์ -->
+            <div id="step-result" class="step-container text-center bg-white p-6 rounded-2xl"></div>
+        </div>
+    </main>
+
+    <script>
+        const MY_LIFF_ID = "2011138817-V8fXNNBI"; 
+        const GOOGLE_APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJkWJevuZ3ueezf4fIfG3Il_r5vy7JcrKYIXixtI-WYJiDagXCQI6zFrXp_OQv6bcr/exec';
+
+        let currentStep = -1;
+        let patientHN = ""; let lineUid = ""; let patientName = "";
+
+        const questions = [
+            { id: "symp1", text: "1. ท่านมีไข้สูง ปวดเมื่อยตามตัว เจ็บคอ โดยไม่ใช่อาการจากไข้หวัดและเกิดอาการหลังกินยาหรือไม่?" },
+            { id: "symp2", text: "2. ท่านมีอาการเจ็บในปาก ในลำคอ มีแผลตามเยื่อบุต่าง ๆ เช่น หู ตา จมูก ปาก อวัยวะเพศหรือไม่?" },
+            { id: "symp3", text: "3. ท่านมีผื่น ตุ่มน้ำพอง จุดแดงตามลำตัว แขน ขา หรือมีผิวหนังลอกเป็นแผ่น เป็นขุย หรือไม่?" },
+            { id: "symp4", text: "4. ท่านมีอาการเจ็บแสบตา เยื่อบุตาแดง ตาอักเสบ ตาบวม หรือไม่?" }
+        ];
+
+        let answers = { symp1: '', symp2: '', symp3: '', symp4: '' };
+        let photos = { symp1: [], symp2: [], symp3: [], symp4: [], extra: [] }; 
+
+        function scrollToTop() {
+            const mainEl = document.querySelector('main');
+            if (mainEl) { try { mainEl.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { mainEl.scrollTop = 0; } }
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+        }
+
+        function buildQuestionsUI() {
+            const container = document.getElementById('questionsContainer');
+            let allHTML = '';
+            questions.forEach((q, index) => {
+                const stepNum = index + 1;
+                const requiresPhoto = (stepNum !== 1);
+                let photoSectionHTML = requiresPhoto ? `<div id="photo-section-${stepNum}" class="hidden mb-5 p-4 bg-amber-50/60 rounded-xl border border-amber-200 text-center"><p class="text-amber-800 font-bold text-xs mb-3"><i class="fa-solid fa-camera text-sm mr-1"></i> กรุณาถ่ายรูปอาการหรือผิวหนัง (แนบอย่างน้อย 1 รูป)</p><label id="add-photo-btn-${stepNum}" class="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white py-2.5 px-5 rounded-xl font-semibold text-xs inline-flex items-center gap-2 shadow-sm transition"><i class="fa-solid fa-camera-retro"></i> เพิ่มรูปภาพ<input type="file" accept="image/*" capture="environment" onchange="handlePhotoUpload(event, ${stepNum})"></label><p class="text-[10px] text-amber-700 mt-1">อัปโหลดได้สูงสุด 5 รูป</p><div id="preview-container-${stepNum}" class="mt-3 hidden flex gap-2 flex-wrap justify-center"></div><p id="photo-warning-${stepNum}" class="text-red-500 font-bold text-xs mt-2 hidden">⚠️ ต้องแนบรูปภาพอย่างน้อย 1 รูป ก่อนไปข้อต่อไป</p></div>` : '';
+                allHTML += `<div id="step-${stepNum}" class="step-container bg-white p-5 rounded-2xl"><div class="mb-2"><span class="text-xs font-bold text-[#1e3a8a] bg-blue-50 px-3 py-1 rounded-full border border-blue-100 whitespace-nowrap">ข้อที่ ${stepNum} จาก 4</span></div><h3 class="text-xl font-bold text-slate-900 mb-4 leading-snug text-left">${q.text}</h3><div class="question-image-wrap mb-5"><img src="question${stepNum}.png" alt="ภาพประกอบคำถามที่ ${stepNum}" class="question-image" loading="lazy" onload="this.nextElementSibling.style.display='none';" onerror="this.style.display='none';"><div class="question-image-fallback"><i class="fa-regular fa-image text-3xl text-slate-300"></i><span class="text-sm font-medium text-slate-400">รูปภาพประกอบคำถาม</span><span class="text-xs text-slate-300">(วางไฟล์ question${stepNum}.png แทนที่นี่)</span></div></div>${photoSectionHTML}<div class="grid grid-cols-2 gap-4 mb-6 mt-5"><button onclick="selectAnswer(${stepNum}, 'no')" id="btn-no-${stepNum}" class="answer-btn hover:border-emerald-400"><i class="fa-solid fa-circle-check answer-icon text-slate-300" id="check-icon-no-${stepNum}"></i><span class="answer-label text-slate-700">ไม่ใช่</span></button><button onclick="selectAnswer(${stepNum}, 'yes')" id="btn-yes-${stepNum}" class="answer-btn hover:border-red-400"><i class="fa-solid fa-circle-check answer-icon text-slate-300" id="check-icon-yes-${stepNum}"></i><span class="answer-label text-slate-700">ใช่ / มีอาการ</span></button></div><div class="flex gap-3"><button onclick="prevStep()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 rounded-xl text-base transition"><i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ</button><button onclick="nextStep()" class="flex-1 bg-[#1e3a8a] hover:bg-blue-900 text-white font-bold py-4 rounded-xl text-base shadow-sm transition">ถัดไป <i class="fa-solid fa-arrow-right ml-1"></i></button></div></div>`;
+            });
+            container.innerHTML = allHTML;
+        }
+
+        function updateUI() {
+            if(currentStep < 0) return;
+            const totalSteps = 6; // ลดเหลือ 6 ขั้นตอนรวม final
+            document.querySelectorAll('.step-container').forEach((el) => {
+                el.classList.remove('step-active');
+                if (el.id === `step-${currentStep}` || 
+                   (currentStep === 5 && el.id === 'step-extra') || 
+                   (currentStep === 6 && el.id === 'step-final') ||
+                   (currentStep === 7 && el.id === 'step-result')) {
+                    el.classList.add('step-active');
+                }
+            });
+            const progress = Math.min((currentStep / totalSteps) * 100, 100);
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        function skipExtraSymp() {
+            document.getElementById('extraSympInput').value = 'ไม่มีอาการเพิ่มเติม';
+            photos.extra = []; 
+            renderPhotoPreview('extra');
+            currentStep = 6; // ข้ามไป final ทันที
+            updateUI(); scrollToTop();
+        }
+
+        function submitExtraAndProceed() {
+            currentStep = 6; // ข้ามไป final ทันที
+            updateUI(); scrollToTop();
+        }
+
+        function prevStep() { 
+            if (currentStep === 6) { currentStep = 5; updateUI(); scrollToTop(); } 
+            else if (currentStep > 0) { currentStep--; updateUI(); scrollToTop(); } 
+        }
+        function nextStep() {
+            if (currentStep >= 1 && currentStep <= 4) {
+                const qId = questions[currentStep - 1].id;
+                const ans = answers[qId];
+                if (!ans) { alert("กรุณาเลือกคำตอบก่อนดำเนินการต่อ"); return; }
+                if (ans === 'yes' && currentStep !== 1 && photos[qId].length === 0) {
+                    document.getElementById(`photo-warning-${currentStep}`).classList.remove('hidden'); return;
+                } else if(currentStep !== 1) { document.getElementById(`photo-warning-${currentStep}`).classList.add('hidden'); }
+            }
+            if(currentStep < 7) { currentStep++; updateUI(); scrollToTop(); }
+        }
+
+        async function submitAssessment() {
+            let yesCount = 0;
+            if (answers.symp1 === 'yes') yesCount++;
+            if (answers.symp2 === 'yes') yesCount++;
+            if (answers.symp3 === 'yes') yesCount++;
+            if (answers.symp4 === 'yes') yesCount++;
+            const isRisk = (yesCount >= 1) ? "เสี่ยงสูง" : "ปกติ";
+
+            const extraTextVal = document.getElementById('extraSympInput').value.trim();
+            let finalExtraText = "-";
+            if (extraTextVal !== "" || photos.extra.length > 0) finalExtraText = extraTextVal !== "" ? extraTextVal : "แนบรูปภาพเพิ่มเติมโดยไม่มีข้อความ";
+
+            const payload = {
+                action: 'submit_assessment',
+                hn: patientHN,
+                symp1: answers.symp1, symp2: answers.symp2, symp3: answers.symp3, symp4: answers.symp4,
+                photo2: photos.symp2, photo3: photos.symp3, photo4: photos.symp4,
+                photo5: photos.extra,
+                extraSymp: finalExtraText,
+                risk: isRisk
+                // นำ sat1-satAvg ออกทั้งหมดจากฝั่ง UI แล้วปล่อยให้ Backend คุมค่าว่างป้องกัน error
+            };
+
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden'); overlay.classList.add('flex');
+            
+            try {
+                const response = await fetch(GOOGLE_APP_SCRIPT_URL, {
+                    method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                const result = await response.json();
+                if (result.status === "success") {
+                    showResultScreen(isRisk);
+                } else throw new Error(result.message || 'ระบบไม่สามารถบันทึกข้อมูลได้');
+            } catch (error) { showLoadingError('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', false); }
+        }
+        window.onload = () => { buildQuestionsUI(); /* ส่วน initialize liff ละไว้ตามโค้ดเดิม */ };
+    </script>
+</body>
+</html>
