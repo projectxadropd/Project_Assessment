@@ -839,7 +839,6 @@
                 finalExtraText = extraTextVal !== "" ? extraTextVal : "แนบรูปภาพเพิ่มเติมโดยไม่มีข้อความ";
             }
 
-            // ส่งค่า - กลับไปแทนคะแนนความพึงพอใจ เพื่อรักษาโครงสร้าง Column ใน Sheet ไว้
             const payload = {
                 action: 'submit_assessment',
                 hn: patientHN,
@@ -882,7 +881,8 @@
                 });
                 const result = await response.json();
                 
-                if (result.status === "success") {
+                // [แก้ไข]: ประเมินจากสถานะ saved ว่าสำเร็จหรือไม่ หากข้อมูลลง DB สำเร็จ ให้ถือว่ากระบวนการสมบูรณ์
+                if (result.status === "success" || result.saved === true) {
                     clearInterval(interval);
                     progressBar.style.width = '100%'; progressText.innerText = '100%';
                     document.getElementById('loadingTitle').innerText = 'บันทึกสำเร็จ!';
@@ -890,16 +890,23 @@
                     document.getElementById('loadingIcon').classList.replace('fa-cloud-arrow-up', 'fa-circle-check');
                     document.getElementById('loadingIcon').classList.replace('text-[#1e3a8a]', 'text-emerald-500');
                     document.getElementById('loadingIcon').classList.remove('animate-bounce');
+                    
+                    // ป้องกันผู้ใช้เข้าใจผิด หากส่ง LINE ไม่ได้ แต่ข้อมูลเข้าชีตแล้ว ให้ Log warning แทน Error
+                    if (!result.lineSent) {
+                        console.warn("Notice:", result.message);
+                    }
 
                     setTimeout(() => { hideLoadingOverlay(); showResultScreen(isRisk); }, 1000);
-                } else throw new Error(result.message || 'ระบบไม่สามารถบันทึกข้อมูลได้');
+                } else {
+                    throw new Error(result.message || 'ระบบไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
+                }
 
             } catch (error) {
                 clearInterval(interval);
-                showLoadingError('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', false);
+                showLoadingError('เกิดข้อผิดพลาด: ' + error.message, false);
             }
         }
-
+        
         function showResultScreen(riskLevel) {
             currentStep = 7;
             document.querySelectorAll('.step-container').forEach(el => el.classList.remove('step-active'));
